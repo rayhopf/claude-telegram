@@ -79,3 +79,7 @@ Requires `claude` CLI to be installed and authenticated.
 | `whitelist_usernames` | yes | Array of allowed Telegram usernames |
 | `log_dir` | no | Directory for JSONL logs (default: `~/.claude/logs`) |
 | `auto_approve_tools` | no | Tools to auto-approve without prompting |
+
+## Using with OpenAI Codex backend
+
+See [SPEC_codex_proxy_deployment.md](SPEC_codex_proxy_deployment.md) for a reference on how to run Claude Code through a CLIProxyAPI proxy backed by an OpenAI Codex subscription. This is only relevant if you don't have enough Claude/Anthropic API tokens and want to use your Codex subscription as a fallback.
