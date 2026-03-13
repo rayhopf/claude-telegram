@@ -94,13 +94,21 @@ class Router:
         self.socket_dir = config.get("socket_dir", "/tmp")
         self.log_dir = os.path.expanduser(config.get("log_dir", "~/.claude/logs"))
         self.registry_path = os.path.join(self.log_dir, "user_registry.json")
-        self.script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.script_dir = config.get("install_dir", os.path.dirname(os.path.abspath(__file__)))
 
     def run(self):
         """Entry point."""
         self._print(f"Router starting...")
         self._print(f"Log: {_log_file}")
         self._print(f"Registry: {self.registry_path}")
+        self._print(f"Scripts: {self.script_dir}")
+
+        # Check that script dir is world-accessible (non-root users need to read it)
+        script_dir_stat = os.stat(self.script_dir)
+        if not (script_dir_stat.st_mode & 0o005):
+            self._print(f"WARNING: {self.script_dir} is not world-readable!")
+            self._print(f"  Per-user sessions won't be able to run claude_session.py")
+            self._print(f"  Fix: install to /opt/claude-telegram or set install_dir in config")
 
         # Load existing user registry
         self._load_registry()
@@ -207,7 +215,7 @@ class Router:
             )
             self.users[tg_user_id] = user
             self._save_registry()
-            self._print(f"New user: @{tg_username} ({tg_first_name}) -> {linux_username}")
+            self._print(f"New user: {tg_first_name} (@{tg_username}) -> {linux_username}")
 
             # Create Linux user
             self._create_linux_user(linux_username)
@@ -246,8 +254,9 @@ class Router:
 
         # Set umask, env vars, and home dir permissions
         home = f"/home/{username}"
-        bashrc = os.path.join(home, ".bashrc")
-        with open(bashrc, "a") as f:
+        # Write to .profile (not .bashrc) — .bashrc exits early for non-interactive shells
+        profile = os.path.join(home, ".profile")
+        with open(profile, "a") as f:
             f.write("\numask 077\n")
             # Pass through API env vars so Claude CLI works for this user
             for var in ("ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY"):
@@ -418,7 +427,8 @@ class Router:
     def _on_telegram_message(self, tg_user_id: int, tg_first_name: str,
                               tg_username: str, text: str, chat_id: int):
         """Called by TelegramBot when a user sends a message."""
-        self._print(f"  [@{tg_username}] -> {text[:80]}")
+        display = f"@{tg_username}" if tg_username else tg_first_name
+        self._print(f"  [{display}] -> {text[:80]}")
         try:
             user = self._ensure_user(tg_user_id, tg_first_name, tg_username)
             send_json(user.socket_conn, {
@@ -443,7 +453,7 @@ class Router:
             return
 
         action = "Allowed" if allow else "Denied"
-        self._print(f"  [@{user.tg_username}] {action} (id={request_id[:8]})")
+        self._print(f"  [{self._display_name(user)}] {action} (id={request_id[:8]})")
 
         send_json(user.socket_conn, {
             "type": MSG_PERMISSION_RESPONSE,
@@ -472,7 +482,7 @@ class Router:
             self._print("Active sessions:")
             for uid, user in self.users.items():
                 status = "ACTIVE" if user.active else "inactive"
-                self._print(f"  {user.linux_username} | @{user.tg_username} ({user.tg_first_name}) | {status}")
+                self._print(f"  {user.linux_username} | {self._display_name(user)} ({user.tg_first_name}) | {status}")
             if not self.users:
                 self._print("  (none)")
 
@@ -533,6 +543,12 @@ class Router:
             if user.active:
                 self._kill_session(user)
         self._print("All sessions stopped.")
+
+    def _display_name(self, user: UserRecord) -> str:
+        """Return @username or first_name for display."""
+        if user.tg_username:
+            return f"@{user.tg_username}"
+        return user.tg_first_name or user.linux_username
 
     def _print(self, text: str):
         """Print to admin terminal with timestamp."""

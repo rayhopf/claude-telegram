@@ -100,6 +100,7 @@ Requires `claude` CLI to be installed and available in PATH.
 | `socket_dir` | no | Directory for Unix sockets (default: `/tmp`) |
 | `restricted_group` | no | Linux group for user isolation (default: `restricted`) |
 | `claude_command` | no | Path to claude CLI (default: `claude`) |
+| `install_dir` | no | Path where scripts are installed (default: auto-detected). Must be world-readable (e.g. `/opt/claude-telegram`). |
 
 ## Legacy single-user mode
 

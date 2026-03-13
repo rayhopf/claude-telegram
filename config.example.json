@@ -5,5 +5,6 @@
   "auto_approve_tools": ["WebSearch", "WebFetch", "Read", "Grep", "Glob", "Bash", "Agent", "ToolSearch"],
   "socket_dir": "/tmp",
   "restricted_group": "restricted",
-  "claude_command": "claude"
+  "claude_command": "claude",
+  "install_dir": "/opt/claude-telegram"
 }
