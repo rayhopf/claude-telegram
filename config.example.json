@@ -1,6 +1,9 @@
 {
   "telegram_bot_token": "YOUR_BOT_TOKEN",
-  "whitelist_usernames": ["your_telegram_username"],
+  "whitelist_user_ids": [],
   "log_dir": "~/.claude/logs",
-  "auto_approve_tools": ["WebSearch", "WebFetch", "Read", "Grep", "Glob", "Bash", "Agent", "ToolSearch"]
+  "auto_approve_tools": ["WebSearch", "WebFetch", "Read", "Grep", "Glob", "Bash", "Agent", "ToolSearch"],
+  "socket_dir": "/tmp",
+  "restricted_group": "restricted",
+  "claude_command": "claude"
 }
