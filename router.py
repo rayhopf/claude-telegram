@@ -244,11 +244,16 @@ class Router:
             username,
         ], check=True)
 
-        # Set umask and home dir permissions
+        # Set umask, env vars, and home dir permissions
         home = f"/home/{username}"
         bashrc = os.path.join(home, ".bashrc")
         with open(bashrc, "a") as f:
             f.write("\numask 077\n")
+            # Pass through API env vars so Claude CLI works for this user
+            for var in ("ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY"):
+                val = os.environ.get(var)
+                if val:
+                    f.write(f"export {var}={val}\n")
         subprocess.run(["chmod", "700", home], check=True)
 
         self._print(f"  Created Linux user: {username} (home={home})")
@@ -272,7 +277,15 @@ class Router:
         claude_cmd = self.config.get("claude_command", "claude")
 
         # Build the command that runs inside tmux
+        # Pass through API env vars so Claude CLI works for the user
+        env_exports = ""
+        for var in ("ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY"):
+            val = os.environ.get(var)
+            if val:
+                env_exports += f"export {var}={val}; "
+
         session_cmd = (
+            f"{env_exports}"
             f"python3 {script}"
             f" --socket {sock_path}"
             f" --auto-approve '{auto_approve}'"
