@@ -45,11 +45,18 @@ Each user gets:
 
 Users can run system tools normally but cannot access each other's home directories.
 
+### Session persistence
+
+Each user's Claude session ID is saved to `~/.claude/last_session_id`. If the router or tmux session restarts, the user's next message automatically resumes their previous conversation via `claude --resume`.
+
+Users can also send `/restart` in Telegram to reload their Claude session (e.g. after installing new skills) without losing conversation history.
+
 ### Monitoring
 
 - **Admin TUI**: The terminal where `router.py` runs shows all user activity with timestamps
 - **tmux attach**: Run `tmux attach -t {username}` to watch any user's Claude session live
 - **Admin commands**: Type `@username message` to send to a user's session, `/list` to see active sessions, `/kill username` to stop a session
+- **User commands**: `/restart` — restart Claude session (reloads skills, preserves conversation)
 
 ## Setup
 
