@@ -27,7 +27,7 @@ from datetime import datetime
 from typing import Optional
 
 from protocol import (
-    MSG_USER_MESSAGE, MSG_PERMISSION_RESPONSE, MSG_SHUTDOWN,
+    MSG_USER_MESSAGE, MSG_PERMISSION_RESPONSE, MSG_SHUTDOWN, MSG_RESTART,
     MSG_ASSISTANT_TEXT, MSG_TOOL_CALL, MSG_TOOL_RESULT,
     MSG_PERMISSION_REQUEST, MSG_RESULT, MSG_ERROR, MSG_SESSION_READY,
     send_json, SocketReader, generate_linux_username,
@@ -433,6 +433,17 @@ class Router:
         self._print(f"  [{display}] -> {text[:80]}")
         try:
             user = self._ensure_user(tg_user_id, tg_first_name, tg_username)
+
+            # Handle /restart command
+            if text.strip() == "/restart":
+                if user.active and user.socket_conn:
+                    self._print(f"  [{display}] Restarting session...")
+                    send_json(user.socket_conn, {"type": MSG_RESTART})
+                else:
+                    if self.telegram_bot:
+                        self.telegram_bot.send_text(tg_user_id, "No active session to restart.")
+                return
+
             send_json(user.socket_conn, {
                 "type": MSG_USER_MESSAGE,
                 "text": text,

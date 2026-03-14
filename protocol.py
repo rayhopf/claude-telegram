@@ -18,6 +18,7 @@ import socket
 MSG_USER_MESSAGE = "user_message"
 MSG_PERMISSION_RESPONSE = "permission_response"
 MSG_SHUTDOWN = "shutdown"
+MSG_RESTART = "restart"
 
 # ---------------------------------------------------------------------------
 # Message types: Session -> Router

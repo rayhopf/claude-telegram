@@ -25,7 +25,7 @@ from datetime import datetime
 from protocol import (
     MSG_ASSISTANT_TEXT, MSG_TOOL_CALL, MSG_TOOL_RESULT,
     MSG_PERMISSION_REQUEST, MSG_RESULT, MSG_ERROR, MSG_SESSION_READY,
-    MSG_USER_MESSAGE, MSG_PERMISSION_RESPONSE, MSG_SHUTDOWN,
+    MSG_USER_MESSAGE, MSG_PERMISSION_RESPONSE, MSG_SHUTDOWN, MSG_RESTART,
     send_json, SocketReader,
 )
 
@@ -53,6 +53,7 @@ class ClaudeSession:
         self.stdin_lock = threading.Lock()
         self.pending_permissions = {}  # request_id -> threading.Event
         self.permission_responses = {}  # request_id -> response dict
+        self.session_id = None  # tracked from Claude's system message
 
     def run(self):
         """Main entry: listen on socket, spawn Claude, bridge messages."""
@@ -94,18 +95,22 @@ class ClaudeSession:
         self.server.listen(1)
         self.conn, _ = self.server.accept()
 
-    def _spawn_claude(self):
+    def _spawn_claude(self, resume_session_id: str = None):
         env = os.environ.copy()
         env.pop("CLAUDECODE", None)
 
+        cmd = [
+            self.claude_command,
+            "--output-format", "stream-json",
+            "--input-format", "stream-json",
+            "--verbose",
+            "--permission-prompt-tool", "stdio",
+        ]
+        if resume_session_id:
+            cmd.extend(["--resume", resume_session_id])
+
         self.proc = subprocess.Popen(
-            [
-                self.claude_command,
-                "--output-format", "stream-json",
-                "--input-format", "stream-json",
-                "--verbose",
-                "--permission-prompt-tool", "stdio",
-            ],
+            cmd,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
@@ -212,6 +217,7 @@ class ClaudeSession:
                 session_id = msg.get("session_id", "")
                 model = msg.get("model", "")
                 if session_id:
+                    self.session_id = session_id
                     print(f"   \033[90mSession: {session_id} | Model: {model}\033[0m")
 
             elif msg_type == "control_request":
@@ -345,9 +351,44 @@ class ClaudeSession:
                 else:
                     logger.warning("Permission response for unknown request: %s", request_id)
 
+            elif msg_type == MSG_RESTART:
+                print("[Session] Restart requested")
+                self._restart_claude()
+
             elif msg_type == MSG_SHUTDOWN:
                 print("[Session] Shutdown requested")
                 break
+
+    def _restart_claude(self):
+        """Kill current Claude process and respawn with --resume."""
+        resume_id = self.session_id
+        print(f"[Session] Restarting Claude (resume={resume_id})")
+        logger.info("Restarting Claude, resume=%s", resume_id)
+
+        # Kill current process
+        if self.proc:
+            self.proc.terminate()
+            try:
+                self.proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+
+        # Respawn with resume
+        self._spawn_claude(resume_session_id=resume_id)
+        print(f"[Session] Claude restarted (pid={self.proc.pid})")
+        logger.info("Claude restarted (pid=%d)", self.proc.pid)
+
+        # New reader thread for the new process
+        claude_reader = threading.Thread(
+            target=self._read_claude_output, daemon=True
+        )
+        claude_reader.start()
+
+        # Notify router
+        self._send_to_router({
+            "type": MSG_ASSISTANT_TEXT,
+            "text": "Session restarted. New skills and settings are now active.",
+        })
 
     def _cleanup(self):
         if self.proc:

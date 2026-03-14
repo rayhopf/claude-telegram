@@ -312,7 +312,7 @@ class TelegramBot:
             # Callback to router
             self.on_permission_response(tg_user_id, request_id, allow)
 
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+        app.add_handler(MessageHandler(filters.TEXT, handle_message))
         app.add_handler(CallbackQueryHandler(handle_callback))
 
         async def run():
