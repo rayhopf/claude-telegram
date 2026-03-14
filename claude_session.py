@@ -54,6 +54,7 @@ class ClaudeSession:
         self.pending_permissions = {}  # request_id -> threading.Event
         self.permission_responses = {}  # request_id -> response dict
         self.session_id = None  # tracked from Claude's system message
+        self._restarting = False  # suppress exit error during restart
 
     def run(self):
         """Main entry: listen on socket, spawn Claude, bridge messages."""
@@ -231,8 +232,11 @@ class ClaudeSession:
                     "error": error,
                 })
 
-        print("\n[Session ended]")
-        self._send_to_router({"type": MSG_ERROR, "error": "Claude process exited"})
+        if self._restarting:
+            print("\n[Session restarting...]")
+        else:
+            print("\n[Session ended]")
+            self._send_to_router({"type": MSG_ERROR, "error": "Claude process exited"})
 
     # ------------------------------------------------------------------
     # Permission handling
@@ -365,6 +369,9 @@ class ClaudeSession:
         print(f"[Session] Restarting Claude (resume={resume_id})")
         logger.info("Restarting Claude, resume=%s", resume_id)
 
+        # Suppress exit error from old reader thread
+        self._restarting = True
+
         # Kill current process
         if self.proc:
             self.proc.terminate()
@@ -374,6 +381,7 @@ class ClaudeSession:
                 self.proc.kill()
 
         # Respawn with resume
+        self._restarting = False
         self._spawn_claude(resume_session_id=resume_id)
         print(f"[Session] Claude restarted (pid={self.proc.pid})")
         logger.info("Claude restarted (pid=%d)", self.proc.pid)
