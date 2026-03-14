@@ -293,7 +293,9 @@ class Router:
             if val:
                 env_exports += f"export {var}={val}; "
 
+        home = f"/home/{user.linux_username}"
         session_cmd = (
+            f"cd {home}; "
             f"{env_exports}"
             f"python3 {script}"
             f" --socket {sock_path}"
