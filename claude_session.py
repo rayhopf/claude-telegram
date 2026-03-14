@@ -392,11 +392,7 @@ class ClaudeSession:
         )
         claude_reader.start()
 
-        # Notify router
-        self._send_to_router({
-            "type": MSG_ASSISTANT_TEXT,
-            "text": "Session restarted. New skills and settings are now active.",
-        })
+        # Router handles the user-facing notification
 
     def _cleanup(self):
         if self.proc:

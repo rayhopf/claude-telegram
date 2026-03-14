@@ -439,6 +439,8 @@ class Router:
                 if user.active and user.socket_conn:
                     self._print(f"  [{display}] Restarting session...")
                     send_json(user.socket_conn, {"type": MSG_RESTART})
+                    if self.telegram_bot:
+                        self.telegram_bot.finalize_stream(tg_user_id, "Session restarted. New skills and settings are now active.")
                 else:
                     if self.telegram_bot:
                         self.telegram_bot.send_text(tg_user_id, "No active session to restart.")
