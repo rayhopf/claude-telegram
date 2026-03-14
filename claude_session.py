@@ -55,6 +55,7 @@ class ClaudeSession:
         self.permission_responses = {}  # request_id -> response dict
         self.session_id = None  # tracked from Claude's system message
         self._restarting = False  # suppress exit error during restart
+        self._session_file = os.path.expanduser("~/.claude/last_session_id")
 
     def run(self):
         """Main entry: listen on socket, spawn Claude, bridge messages."""
@@ -68,7 +69,17 @@ class ClaudeSession:
         # Tell router we're ready
         send_json(self.conn, {"type": MSG_SESSION_READY})
 
-        self._spawn_claude()
+        # Resume last session if available
+        resume_id = None
+        try:
+            with open(self._session_file) as f:
+                resume_id = f.read().strip() or None
+        except OSError:
+            pass
+        if resume_id:
+            print(f"[Session] Resuming session: {resume_id}")
+
+        self._spawn_claude(resume_session_id=resume_id)
         print(f"[Session] Claude started (pid={self.proc.pid})")
         logger.info("Claude process started (pid=%d)", self.proc.pid)
 
@@ -219,6 +230,11 @@ class ClaudeSession:
                 model = msg.get("model", "")
                 if session_id:
                     self.session_id = session_id
+                    try:
+                        with open(self._session_file, "w") as f:
+                            f.write(session_id)
+                    except OSError:
+                        pass
                     print(f"   \033[90mSession: {session_id} | Model: {model}\033[0m")
 
             elif msg_type == "control_request":
