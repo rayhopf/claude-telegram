@@ -274,14 +274,16 @@ class Router:
                 "sudo", "-u", username,
                 "mkdir", "-p", dest,
             ], check=True)
-            # Copy all skill subdirectories
+            # Copy all skill subdirectories (follow symlinks to get real files)
             for entry in os.listdir(self.skills_skel_dir):
                 src = os.path.join(self.skills_skel_dir, entry)
                 dst = os.path.join(dest, entry)
-                if os.path.isdir(src):
-                    shutil.copytree(src, dst)
-                else:
-                    shutil.copy2(src, dst)
+                # Resolve symlinks — npx skills creates symlinks in .claude/skills/
+                real_src = os.path.realpath(src)
+                if os.path.isdir(real_src):
+                    shutil.copytree(real_src, dst)
+                elif os.path.isfile(real_src):
+                    shutil.copy2(real_src, dst)
             # Fix ownership (copytree runs as root)
             subprocess.run(["chown", "-R", f"{username}:{username}", dest], check=True)
             self._print(f"  Installed skills from {self.skills_skel_dir}")
