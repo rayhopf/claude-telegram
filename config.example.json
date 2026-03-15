@@ -6,5 +6,6 @@
   "socket_dir": "/tmp",
   "restricted_group": "restricted",
   "claude_command": "claude",
-  "install_dir": "/opt/claude-telegram"
+  "install_dir": "/opt/claude-telegram",
+  "skills_skel_dir": "/opt/claude-telegram/skills-skel"
 }

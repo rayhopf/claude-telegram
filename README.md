@@ -108,6 +108,24 @@ Requires `claude` CLI to be installed and available in PATH.
 | `restricted_group` | no | Linux group for user isolation (default: `restricted`) |
 | `claude_command` | no | Path to claude CLI (default: `claude`) |
 | `install_dir` | no | Path where scripts are installed (default: auto-detected). Must be world-readable (e.g. `/opt/claude-telegram`). |
+| `skills_skel_dir` | no | Path to a directory of Claude skills to pre-install for every new user. Copied to `~/.claude/skills/` on user creation. |
+
+### Pre-installed skills
+
+You can pre-install Claude skills (e.g., [Binance Skills Hub](https://github.com/binance/binance-skills-hub)) for all new users:
+
+1. Create a skeleton directory with the skills:
+   ```bash
+   mkdir -p /opt/claude-telegram/skills-skel
+   cd /opt/claude-telegram/skills-skel
+   npx skills add https://github.com/binance/binance-skills-hub
+   ```
+2. Set `skills_skel_dir` in `config.json`:
+   ```json
+   "skills_skel_dir": "/opt/claude-telegram/skills-skel"
+   ```
+
+When a new user is created, the contents of `skills_skel_dir` are copied into their `~/.claude/skills/`. Existing users can install additional skills in their home directory and `/restart` to reload.
 
 ## Legacy single-user mode
 

@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import select
+import shutil
 import socket
 import subprocess
 import sys
@@ -95,6 +96,7 @@ class Router:
         self.log_dir = os.path.expanduser(config.get("log_dir", "~/.claude/logs"))
         self.registry_path = os.path.join(self.log_dir, "user_registry.json")
         self.script_dir = config.get("install_dir", os.path.dirname(os.path.abspath(__file__)))
+        self.skills_skel_dir = config.get("skills_skel_dir", "")
 
     def run(self):
         """Entry point."""
@@ -264,6 +266,25 @@ class Router:
                 if val:
                     f.write(f"export {var}={val}\n")
         subprocess.run(["chmod", "700", home], check=True)
+
+        # Pre-install skills from skeleton directory
+        if self.skills_skel_dir and os.path.isdir(self.skills_skel_dir):
+            dest = os.path.join(home, ".claude", "skills")
+            subprocess.run([
+                "sudo", "-u", username,
+                "mkdir", "-p", dest,
+            ], check=True)
+            # Copy all skill subdirectories
+            for entry in os.listdir(self.skills_skel_dir):
+                src = os.path.join(self.skills_skel_dir, entry)
+                dst = os.path.join(dest, entry)
+                if os.path.isdir(src):
+                    shutil.copytree(src, dst)
+                else:
+                    shutil.copy2(src, dst)
+            # Fix ownership (copytree runs as root)
+            subprocess.run(["chown", "-R", f"{username}:{username}", dest], check=True)
+            self._print(f"  Installed skills from {self.skills_skel_dir}")
 
         self._print(f"  Created Linux user: {username} (home={home})")
         logger.info("Created Linux user: %s", username)
