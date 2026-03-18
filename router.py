@@ -413,7 +413,11 @@ class Router:
                     text = msg.get("text", "")
                     duration = msg.get("duration_ms")
                     cost = msg.get("cost_usd")
+                    call_cost = msg.get("call_cost_usd", 0)
+                    cache_hit_pct = msg.get("cache_hit_pct", 0)
                     turns = msg.get("turns", 0)
+                    context_used = msg.get("context_used", 0)
+                    context_max = msg.get("context_max", 0)
                     info = []
                     if duration:
                         info.append(f"{duration/1000:.1f}s")
@@ -421,6 +425,13 @@ class Router:
                         info.append(f"{turns} turns")
                     if cost:
                         info.append(f"${cost:.4f}")
+                    if call_cost > 0:
+                        info.append(f"call ${call_cost:.4f}")
+                    if cache_hit_pct > 0 or context_used > 0:
+                        info.append(f"cache {cache_hit_pct}%")
+                    if context_max:
+                        pct = context_used * 100 // context_max
+                        info.append(f"[{context_used//1000}K/{context_max//1000}K {pct}%]")
                     stats = " | ".join(info) if info else "Done"
                     self._print(f"  [{user.linux_username}] Result: {stats}")
 

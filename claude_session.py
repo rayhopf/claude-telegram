@@ -56,6 +56,7 @@ class ClaudeSession:
         self.session_id = None  # tracked from Claude's system message
         self._restarting = False  # suppress exit error during restart
         self._session_file = os.path.expanduser("~/.claude/last_session_id")
+        self._last_total_cost = 0.0  # for per-call cost calculation
 
     def run(self):
         """Main entry: listen on socket, spawn Claude, bridge messages."""
@@ -207,6 +208,33 @@ class ClaudeSession:
                 duration = msg.get("duration_ms")
                 cost = msg.get("total_cost_usd")
                 turns = msg.get("num_turns", 0)
+
+                # Per-call cost (total is cumulative)
+                call_cost = (cost or 0) - self._last_total_cost
+                self._last_total_cost = cost or 0
+
+                # Cache hit ratio from per-call usage
+                cache_hit_pct = 0
+                usage = msg.get("usage", {})
+                input_tok = usage.get("input_tokens", 0)
+                cache_create = usage.get("cache_creation_input_tokens", 0)
+                cache_read = usage.get("cache_read_input_tokens", 0)
+                total_input = input_tok + cache_create + cache_read
+                if total_input > 0:
+                    cache_hit_pct = cache_read * 100 // total_input
+
+                # Extract context window usage from modelUsage
+                context_used = 0
+                context_max = 0
+                model_usage = msg.get("modelUsage", {})
+                for model, mu in model_usage.items():
+                    tokens = (mu.get("inputTokens", 0)
+                              + mu.get("outputTokens", 0)
+                              + mu.get("cacheReadInputTokens", 0)
+                              + mu.get("cacheCreationInputTokens", 0))
+                    context_used += tokens
+                    context_max = max(context_max, mu.get("contextWindow", 0))
+
                 info = []
                 if duration:
                     info.append(f"{duration/1000:.1f}s")
@@ -214,6 +242,13 @@ class ClaudeSession:
                     info.append(f"{turns} turns")
                 if cost:
                     info.append(f"${cost:.4f}")
+                if call_cost > 0:
+                    info.append(f"call ${call_cost:.4f}")
+                if total_input > 0:
+                    info.append(f"cache {cache_hit_pct}%")
+                if context_max:
+                    pct = context_used * 100 // context_max
+                    info.append(f"[{context_used//1000}K/{context_max//1000}K {pct}%]")
                 if info:
                     print(f"   \033[90m{' | '.join(info)}\033[0m")
 
@@ -222,7 +257,11 @@ class ClaudeSession:
                     "text": result_text,
                     "duration_ms": duration,
                     "cost_usd": cost,
+                    "call_cost_usd": call_cost,
+                    "cache_hit_pct": cache_hit_pct,
                     "turns": turns,
+                    "context_used": context_used,
+                    "context_max": context_max,
                 })
 
             elif msg_type == "system":
