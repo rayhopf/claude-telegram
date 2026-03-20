@@ -171,14 +171,26 @@ class ClaudeSession:
                         })
                     elif block.get("type") == "tool_use":
                         name = block.get("name", "?")
-                        inp = json.dumps(block.get("input", {}))
+                        tool_input = block.get("input", {})
+                        inp = json.dumps(tool_input)
                         if len(inp) > 120:
                             inp = inp[:120] + "..."
                         print(f"\n\033[33mTool:\033[0m {name}({inp})")
+                        # Extract a short detail for display
+                        detail = ""
+                        for key in ("file_path", "command", "pattern", "url",
+                                    "query", "prompt", "skill", "description"):
+                            if key in tool_input:
+                                val = str(tool_input[key])
+                                if len(val) > 60:
+                                    val = val[:57] + "..."
+                                detail = val
+                                break
+                        summary = f"{name}: {detail}" if detail else name
                         self._send_to_router({
                             "type": MSG_TOOL_CALL,
                             "tool_name": name,
-                            "summary": f"{name}",
+                            "summary": summary,
                         })
 
             elif msg_type == "user":
@@ -223,16 +235,11 @@ class ClaudeSession:
                 if total_input > 0:
                     cache_hit_pct = cache_read * 100 // total_input
 
-                # Extract context window usage from modelUsage
-                context_used = 0
+                # Context window usage: per-call input tokens vs window limit
+                context_used = input_tok + cache_create + cache_read
                 context_max = 0
                 model_usage = msg.get("modelUsage", {})
                 for model, mu in model_usage.items():
-                    tokens = (mu.get("inputTokens", 0)
-                              + mu.get("outputTokens", 0)
-                              + mu.get("cacheReadInputTokens", 0)
-                              + mu.get("cacheCreationInputTokens", 0))
-                    context_used += tokens
                     context_max = max(context_max, mu.get("contextWindow", 0))
 
                 info = []

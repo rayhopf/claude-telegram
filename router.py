@@ -382,7 +382,7 @@ class Router:
                     # Don't send assistant text directly — it comes with the result
 
                 elif msg_type == MSG_TOOL_CALL:
-                    tool = msg.get("tool_name", "?")
+                    tool = msg.get("summary") or msg.get("tool_name", "?")
                     self._print(f"  [{user.linux_username}] Tool: {tool}")
                     if self.telegram_bot:
                         self.telegram_bot.update_stream(tg_user_id, f"Tool: {tool}")
